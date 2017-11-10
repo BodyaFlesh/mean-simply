@@ -12,7 +12,7 @@ const userRoutes = require('./routes/user');
 
 var app = express();
 mongoose.Promise = Promise;
-mongoose.connect('mongodb://localhost:27017/node-angular');
+mongoose.connect('mongodb://bodya.flesh:test@ds257245.mlab.com:57245/heroku_45sdsrd0');
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
