@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
+const User = require('../models/user');
 
 const Message = require('../models/message');
 
 router.get('/', (req, res, next) => {
-    Message.find().exec((err, messages) => {
+    Message.find().populate('user', 'firstName').exec((err, messages) => {
         if(err){
             return res.status(500).json({
                 title: 'An error occurred',
@@ -16,27 +18,52 @@ router.get('/', (req, res, next) => {
             obj: messages
         })
     })
-})
+});
+
+router.use('/', (req, res, next) => {
+    jwt.verify(req.query.token, 'secret', (err, decoded) => {
+        if(err){
+            return res.status(401).json({
+                title: 'Not Authenticated',
+                error: err
+            })
+        }
+        next();
+    });
+});
 
 router.post('/', (req, res, next) => {
-    const message = new Message({
-        content: req.body.content
-    });
-    message.save((err, result) => {
+    var decoded = jwt.decode(req.query.token);
+    User.findById(decoded.user._id, (err, user) => {
         if(err){
             return res.status(500).json({
                 title: 'An error occurred',
                 error: err
             })
         }
-        res.status(201).json({
-            message: 'Saved message',
-            obj: result
-        })
+        const message = new Message({
+            content: req.body.content,
+            user: user._id
+        });
+        message.save((err, result) => {
+            if(err){
+                return res.status(500).json({
+                    title: 'An error occurred',
+                    error: err
+                })
+            }
+            user.messages.push(result);
+            user.save();
+            res.status(201).json({
+                message: 'Saved message',
+                obj: result
+            })
+        });
     });
-})
+});
 
 router.put('/:id', (req, res, next) => {
+    const decoded = jwt.decode(req.query.token);
     Message.findById(req.params.id, (err, message) => {
         if(err){
             return res.status(500).json({
@@ -51,6 +78,12 @@ router.put('/:id', (req, res, next) => {
                     message: 'Message not found'
                 }
             });
+        }
+        if(message.user != decoded.user._id){
+            return res.status(401).json({
+                title: 'Not Authenticated',
+                error: { message: 'Users do not match'}
+            })
         }
         message.content = req.body.content;
         message.save((err, result) => {
@@ -66,9 +99,10 @@ router.put('/:id', (req, res, next) => {
             })
         });
     })
-})
+});
 
 router.delete('/:id', (req, res, next) => {
+    const decoded = jwt.decode(req.query.token);
     Message.findById(req.params.id, (err, message) => {
         if(err){
             return res.status(500).json({
@@ -83,6 +117,12 @@ router.delete('/:id', (req, res, next) => {
                     message: 'Message not found'
                 }
             });
+        }
+        if(message.user != decoded.user._id){
+            return res.status(401).json({
+                title: 'Not Authenticated',
+                error: { message: 'Users do not match'}
+            })
         }
         message.remove((err, result) => {
             if(err){
